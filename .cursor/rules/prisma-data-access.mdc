@@ -1,0 +1,17 @@
+---
+description: Prisma とデータアクセスの統一
+globs: 001_開発/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Prisma データアクセスルール
+
+- Prisma Client は `001_開発/src/lib/db.ts` の `prisma` を利用する。
+- 各所で `new PrismaClient()` を増やさない。
+- スキーマ変更時は `prisma/schema.prisma` と migration の整合を保つ。
+- DB仕様に関わる変更では、必要に応じて seed や README の手順を更新する。
+
+# 安全性
+
+- 読み取り・更新・削除の条件を明確にし、意図しない全件更新を避ける。
+- nullable項目は null チェックを先に行い、実行時エラーを防ぐ。

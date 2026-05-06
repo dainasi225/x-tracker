@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// priority: HIGH | MEDIUM | LOW
+// phase: PROSPECT | CONTACTED | ENGAGED | PARTNER
+model Target {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  displayName    String?
+  bio            String?
+  followerCount  Int?
+  followingCount Int?
+  isFollowing    Boolean   @default(false)
+  isBlacklisted  Boolean   @default(false)
+  blacklistReason String?
+  priority       String    @default("MEDIUM")
+  phase          String    @default("PROSPECT")
+  tags           String    @default("")
+  notes          String?
+  lastApproachedAt DateTime?
+  nextApproachAt   DateTime?
+  // X API キャッシュ（24h 再利用）
+  xApiCachedAt     DateTime?
+  xFollowerCount   Int?       // API取得値（手動入力より優先）
+  xFollowingCount  Int?
+  xTweetCount      Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  interactions   Interaction[]
+  strategies     Strategy[]
+}
+
+// type: REPLY | LIKE | REPOST | QUOTE | DM | FOLLOW | MENTION | OTHER
+// result: NO_RESPONSE | LIKED | REPLIED | FOLLOWED | UNFOLLOWED
+// sentiment: POSITIVE | NEUTRAL | NEGATIVE
+model Interaction {
+  id          String   @id @default(cuid())
+  type        String
+  content     String?
+  postUrl     String?
+  result      String   @default("NO_RESPONSE")
+  sentiment   String?
+  topic       String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  targetId    String
+  target      Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
+}
+
+// date: "YYYY-MM-DD"
+model DailyActivity {
+  id          String   @id @default(cuid())
+  date        String   @unique
+  replyCount  Int      @default(0)
+  dmCount     Int      @default(0)
+  followCount Int      @default(0)
+  likeCount   Int      @default(0)
+  quoteCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Strategy {
+  id         String   @id @default(cuid())
+  approach   String
+  result     String?
+  nextAction String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  targetId   String
+  target     Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
+}
+
+model UserPersona {
+  id                String   @id @default("default")
+  xUsername         String?
+  xApiCachedAt      DateTime?
+  followerCount     Int      @default(0)
+  nicheKeywords     String   @default("")
+  avgEngagementRate Float    @default(0)
+  ffRatio           Float    @default(1)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
