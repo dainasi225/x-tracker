@@ -1,0 +1,18 @@
+---
+description: Next.js + TypeScript 実装規約
+globs: 001_開発/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Next.js / TypeScript ルール
+
+- Next.js App Router 前提で実装し、`src/app` の構造を優先する。
+- TypeScript は `strict` 前提で、`any` の追加は避ける。
+- import は既存スタイルに合わせ、`@/*` エイリアスを優先して使う。
+- UIスタイルは Tailwind を基本とし、色は `tailwind.config.ts` の `x.*` を優先する。
+
+# API とレスポンス
+
+- API ルートは `src/app/api/**/route.ts` に置く。
+- レスポンスは `NextResponse.json` を使い、エラー時はHTTPステータスを明示する。
+- 例外を握りつぶさず、利用者が判断できる形でメッセージを返す。
