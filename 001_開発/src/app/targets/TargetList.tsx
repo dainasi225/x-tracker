@@ -58,6 +58,8 @@ const tagLabelJa: Record<string, string> = {
   SIZE_MATCH: "規模一致",
   SIZE_GAP_LARGE: "規模差大",
   FF_STYLE_MATCH: "運用近似",
+  CLUSTER_MISMATCH_CHECK: "クラスタ違い要チェック",
+  ALGO_NOISE_CHECK: "アルゴ汚染リスク要チェック",
 };
 
 function toTagLabel(tag: string): string {

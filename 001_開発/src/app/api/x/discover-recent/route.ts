@@ -18,15 +18,43 @@ type XTweet = {
   in_reply_to_user_id?: string;
 };
 
+const ALGO_NOISE_BIO_PATTERNS = [
+  /相互フォロー/i,
+  /フォロバ100/i,
+  /フォロバ/i,
+  /\bf4f\b/i,
+  /follow\s*back/i,
+  /拡散希望/i,
+  /プレゼント企画/i,
+];
+
 function normalizeUsername(value: string): string {
   return value.replace("@", "").trim().toLowerCase();
+}
+
+function normalizeKeywords(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function calculateClusterSimilarity(myNicheKeywords: string[], profileText: string): number | null {
+  if (myNicheKeywords.length === 0) return null;
+  const normalizedProfile = profileText.toLowerCase();
+  if (!normalizedProfile.trim()) return 0;
+
+  const matched = myNicheKeywords.filter((keyword) => normalizedProfile.includes(keyword)).length;
+  return matched / myNicheKeywords.length;
 }
 
 function buildFollowContext(
   followerCount: number | null,
   followingCount: number | null,
   myFollowerCount: number,
-  myFfRatio: number
+  myFfRatio: number,
+  profileText: string,
+  myNicheKeywords: string[]
 ): { priority: "HIGH" | "MEDIUM" | "LOW"; tags: string[]; note: string } {
   const followers = followerCount ?? 0;
   const followings = Math.max(1, followingCount ?? 1);
@@ -34,6 +62,10 @@ function buildFollowContext(
   const ratioToMe = myFollowerCount > 0 ? followers / myFollowerCount : 1;
 
   const tags = ["AUTO_DISCOVERED"];
+  const warnings: string[] = [];
+  const pushTag = (tag: string) => {
+    if (!tags.includes(tag)) tags.push(tag);
+  };
   let score = 0;
 
   if (followers < 3000) {
@@ -68,10 +100,37 @@ function buildFollowContext(
     tags.push("FF_STYLE_MATCH");
   }
 
+  const clusterSimilarity = calculateClusterSimilarity(myNicheKeywords, profileText);
+  if (clusterSimilarity != null && clusterSimilarity < 0.2) {
+    score -= 2;
+    pushTag("CLUSTER_MISMATCH_CHECK");
+    warnings.push(`クラスタ一致度 ${Math.round(clusterSimilarity * 100)}%`);
+  }
+
+  const lowerProfile = profileText.toLowerCase();
+  const hasBioRisk = ALGO_NOISE_BIO_PATTERNS.some((pattern) => pattern.test(lowerProfile));
+  const isFollowSpamStyle = followings >= 8000 && ffRatio < 0.2;
+  if (hasBioRisk || isFollowSpamStyle) {
+    score -= 2;
+    pushTag("ALGO_NOISE_CHECK");
+    if (hasBioRisk) {
+      warnings.push("プロフィールに相互拡散系キーワード");
+    }
+    if (isFollowSpamStyle) {
+      warnings.push("フォロー過多（運用ノイズ懸念）");
+    }
+  }
+
   const priority: "HIGH" | "MEDIUM" | "LOW" = score >= 4 ? "HIGH" : score <= 0 ? "LOW" : "MEDIUM";
-  const note = `最近やりとり相手から自動追加 / followers=${followers}, following=${followings}, ff=${ffRatio.toFixed(
-    2
-  )}, ratioToMe=${ratioToMe.toFixed(2)}x`;
+  const noteParts = [
+    `最近やりとり相手から自動追加 / followers=${followers}, following=${followings}, ff=${ffRatio.toFixed(
+      2
+    )}, ratioToMe=${ratioToMe.toFixed(2)}x`,
+  ];
+  if (warnings.length > 0) {
+    noteParts.push(`要チェック: ${warnings.join(" / ")}`);
+  }
+  const note = noteParts.join(" | ");
   return { priority, tags, note };
 }
 
@@ -89,13 +148,14 @@ export async function POST(request: Request) {
 
   const me = await prisma.userPersona.findUnique({
     where: { id: "default" },
-    select: { xUsername: true, followerCount: true, ffRatio: true },
+    select: { xUsername: true, followerCount: true, ffRatio: true, nicheKeywords: true },
   });
   const myUsername = normalizeUsername(
     String(body?.username ?? me?.xUsername ?? process.env.X_MY_USERNAME ?? "")
   );
   const myFollowerCount = Number(me?.followerCount ?? 0);
   const myFfRatio = Number(me?.ffRatio ?? 1);
+  const myNicheKeywords = normalizeKeywords(String(me?.nicheKeywords ?? ""));
 
   if (!myUsername) {
     return NextResponse.json(
@@ -245,7 +305,9 @@ export async function POST(request: Request) {
       followerCount,
       followingCount,
       myFollowerCount,
-      myFfRatio
+      myFfRatio,
+      `${u.name ?? ""} ${u.description ?? ""}`.trim(),
+      myNicheKeywords
     );
     const isFollowerNow = followerUsernameSet.has(uname);
     const existingTarget = existingByUsername.get(uname);
