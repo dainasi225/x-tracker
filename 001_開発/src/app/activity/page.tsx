@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import RefreshActivityButton from "./RefreshActivityButton";
 
 const DAILY_LIMITS = {
   replyCount: 100,
@@ -37,8 +38,15 @@ export default async function ActivityPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold text-white mb-2">行動量ログ</h1>
-      <p className="text-x-gray text-sm mb-6">X規約の上限を意識して行動量を管理します</p>
+      <div className="flex items-start justify-between gap-3 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white mb-2">行動量ログ</h1>
+          <p className="text-x-gray text-sm">
+            X規約の上限を意識して行動量を管理します
+          </p>
+        </div>
+        <RefreshActivityButton />
+      </div>
 
       {/* 今日の上限ゲージ */}
       <div className="card mb-6">
