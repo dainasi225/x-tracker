@@ -22,7 +22,7 @@ export default function AutoDiscoverButton() {
       }
 
       alert(
-        `自動更新完了\nscanned=${data?.scanned ?? 0}\ncreated=${data?.created ?? 0}\nupdated=${data?.updated ?? 0}\nfollowersExcluded=${data?.followersExcluded ?? 0}\nskipped=${data?.skippedExisting ?? 0}`
+        `自動更新完了\nscanned=${data?.scanned ?? 0}\ncreated=${data?.created ?? 0}\nupdated=${data?.updated ?? 0}\nfollowersExcluded=${data?.followersExcluded ?? 0}\nfollowedByMeMarked=${data?.followedByMeMarked ?? 0}\nskipped=${data?.skippedExisting ?? 0}`
       );
       router.refresh();
     } finally {

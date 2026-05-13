@@ -212,6 +212,37 @@ export async function POST(request: Request) {
     if (!paginationToken) break;
   }
 
+  // 1.6) 自分がフォローしている一覧（最大 1,000）を取得
+  const followedByMeUsernameSet = new Set<string>();
+  let followingPaginationToken: string | null = null;
+  let canSyncFollowedByMe = true;
+  for (let i = 0; i < 10; i++) {
+    const followingRes: Response = await fetch(
+      `${X_API_BASE}/users/${myUserId}/following?max_results=100&user.fields=username${
+        followingPaginationToken ? `&pagination_token=${followingPaginationToken}` : ""
+      }`,
+      {
+        headers: { Authorization: `Bearer ${bearerToken}` },
+        cache: "no-store",
+      }
+    );
+    if (!followingRes.ok) {
+      canSyncFollowedByMe = false;
+      break;
+    }
+    const followingJson: {
+      data?: { username?: string }[];
+      meta?: { next_token?: string };
+    } = await followingRes.json().catch(() => ({}));
+    const users = (followingJson?.data ?? []) as { username?: string }[];
+    users.forEach((u) => {
+      if (!u?.username) return;
+      followedByMeUsernameSet.add(normalizeUsername(u.username));
+    });
+    followingPaginationToken = String(followingJson?.meta?.next_token ?? "");
+    if (!followingPaginationToken) break;
+  }
+
   // 2) メンションしてきた相手（自分へのやりとり）
   const mentionRes = await fetch(
     `${X_API_BASE}/users/${myUserId}/mentions?max_results=${Math.min(limit, 50)}&expansions=author_id&user.fields=username,name,description,public_metrics&tweet.fields=author_id`,
@@ -296,6 +327,7 @@ export async function POST(request: Request) {
   let created = 0;
   let updated = 0;
   let followersExcluded = 0;
+  let followedByMeMarked = 0;
 
   for (const u of candidates) {
     const uname = normalizeUsername(u.username);
@@ -320,6 +352,7 @@ export async function POST(request: Request) {
       )
     ).join(",");
 
+    const isFollowedByMeNow = followedByMeUsernameSet.has(uname);
     if (!existingTarget) {
       await prisma.target.create({
         data: {
@@ -329,6 +362,7 @@ export async function POST(request: Request) {
           followerCount,
           followingCount,
           isFollowing: isFollowerNow,
+          isFollowedByMe: canSyncFollowedByMe ? isFollowedByMeNow : false,
           priority: followContext.priority,
           phase: isFollowerNow ? "PARTNER" : "PROSPECT",
           tags: mergedTags,
@@ -350,6 +384,7 @@ export async function POST(request: Request) {
         followerCount,
         followingCount,
         isFollowing: isFollowerNow ? true : undefined,
+        ...(canSyncFollowedByMe ? { isFollowedByMe: isFollowedByMeNow } : {}),
         priority: followContext.priority,
         phase: isFollowerNow ? "PARTNER" : undefined,
         tags: mergedTags,
@@ -377,11 +412,27 @@ export async function POST(request: Request) {
     followersExcluded += result.count;
   }
 
+  if (canSyncFollowedByMe && followedByMeUsernameSet.size > 0) {
+    const followedByMeUsernames = Array.from(followedByMeUsernameSet);
+    const result = await prisma.target.updateMany({
+      where: {
+        username: { in: followedByMeUsernames },
+        isBlacklisted: false,
+        isFollowedByMe: false,
+      },
+      data: {
+        isFollowedByMe: true,
+      },
+    });
+    followedByMeMarked += result.count;
+  }
+
   return NextResponse.json({
     scanned: candidates.length,
     created,
     updated,
     followersExcluded,
+    followedByMeMarked,
     skippedExisting: Math.max(0, candidates.length - created - updated),
   });
 }

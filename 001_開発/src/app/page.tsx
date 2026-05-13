@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import UserUrlCopyButton from "@/components/UserUrlCopyButton";
+import ExcludeSuggestionButton from "./ExcludeSuggestionButton";
 import {
   buildEngagementRecord,
   calculateDetailedScore,
@@ -7,34 +9,18 @@ import {
   scoreLabel,
 } from "@/lib/score";
 
-const DAILY_LIMITS = {
-  replyCount: 100,
-  dmCount: 50,
-  followCount: 400,
-  likeCount: 1000,
-  quoteCount: 50,
-};
-
-const activityLabels: Record<string, string> = {
-  replyCount: "リプライ",
-  dmCount: "DM",
-  followCount: "フォロー",
-  likeCount: "いいね",
-  quoteCount: "引用",
-};
-
 const typeLabels: Record<string, string> = {
   REPLY: "リプライ", LIKE: "いいね", REPOST: "リポスト", QUOTE: "引用",
-  DM: "DM", FOLLOW: "フォロー", MENTION: "メンション", OTHER: "その他",
+  POST: "投稿", DM: "DM", FOLLOW: "フォロー", MENTION: "メンション", OTHER: "その他",
 };
 
 const typeEmoji: Record<string, string> = {
   REPLY: "💬", LIKE: "❤️", REPOST: "🔁", QUOTE: "📝",
-  DM: "✉️", FOLLOW: "➕", MENTION: "📢", OTHER: "•",
+  POST: "📝", DM: "✉️", FOLLOW: "➕", MENTION: "📢", OTHER: "•",
 };
 
 const phaseLabels: Record<string, string> = {
-  PROSPECT: "未接触", CONTACTED: "接触済み", ENGAGED: "反応あり", PARTNER: "関係構築済み",
+  PROSPECT: "アプローチ候補", CONTACTED: "接触済み", ENGAGED: "反応あり", PARTNER: "関係構築済み",
 };
 
 const phaseColors: Record<string, string> = {
@@ -42,14 +28,26 @@ const phaseColors: Record<string, string> = {
   ENGAGED: "text-green-400", PARTNER: "text-x-blue",
 };
 
+async function getQuoteCandidateCount() {
+  const db = prisma as typeof prisma & {
+    quoteCandidate?: { count: () => Promise<number> };
+  };
+  if (!db.quoteCandidate) return 0;
+  try {
+    return await db.quoteCandidate.count();
+  } catch {
+    return 0;
+  }
+}
+
 async function getStats() {
-  const today = new Date().toISOString().slice(0, 10);
   const since90d = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [
     targetCount, interactionCount, highPriorityCount,
     phaseBreakdown, interactionsByType, recentInteractions,
-    todayActivity, targets, myPersona,
+    targets, myPersona, quoteCandidateCount, recentTargetAddCount, recentInteractionResults,
   ] = await Promise.all([
     prisma.target.count({
       where: { phase: { not: "PARTNER" }, isFollowing: false, isBlacklisted: false },
@@ -68,7 +66,6 @@ async function getStats() {
     prisma.interaction.findMany({
       take: 5, orderBy: { createdAt: "desc" }, include: { target: true },
     }),
-    prisma.dailyActivity.findUnique({ where: { date: today } }),
     prisma.target.findMany({
       where: {
         phase: { not: "PARTNER" },
@@ -83,6 +80,12 @@ async function getStats() {
       },
     }),
     prisma.userPersona.findUnique({ where: { id: "default" } }),
+    getQuoteCandidateCount(),
+    prisma.target.count({ where: { createdAt: { gte: since7d }, isBlacklisted: false } }),
+    prisma.interaction.findMany({
+      where: { createdAt: { gte: since90d } },
+      select: { result: true },
+    }),
   ]);
 
   // 今日のアプローチ済み判定
@@ -121,18 +124,27 @@ async function getStats() {
     .sort((a, b) => (a.approachedToday !== b.approachedToday ? (a.approachedToday ? 1 : -1) : b.score - a.score))
     .slice(0, 5);
 
+  const positiveInteractionCount = recentInteractionResults.filter((ix) =>
+    ["LIKED", "REPLIED", "FOLLOWED"].includes(ix.result)
+  ).length;
+  const reactionRate =
+    recentInteractionResults.length > 0
+      ? Math.round((positiveInteractionCount / recentInteractionResults.length) * 100)
+      : 0;
+
   return {
     targetCount, interactionCount, highPriorityCount,
     phaseBreakdown, interactionsByType, recentInteractions,
-    todayActivity, suggestions,
+    suggestions,
+    quoteCandidateCount,
+    recentTargetAddCount,
+    reactionRate,
+    reactionSampleCount: recentInteractionResults.length,
   };
 }
 
 export default async function Dashboard() {
   const stats = await getStats();
-  const today = stats.todayActivity ?? {
-    replyCount: 0, dmCount: 0, followCount: 0, likeCount: 0, quoteCount: 0,
-  };
 
   return (
     <div className="p-6">
@@ -196,12 +208,16 @@ export default async function Dashboard() {
                     <p className="text-yellow-400 text-xs mt-1">→ {s.action}</p>
                     <p className="text-x-gray text-xs mt-0.5">{s.topReason}</p>
                   </div>
-                  <Link
-                    href={`/interactions?targetId=${s.id}`}
-                    className="text-x-gray hover:text-x-blue text-xs shrink-0 transition-colors"
-                  >
-                    記録 →
-                  </Link>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <UserUrlCopyButton username={s.username} />
+                    <Link
+                      href={`/interactions?targetId=${s.id}`}
+                      className="text-x-gray hover:text-x-blue text-xs transition-colors"
+                    >
+                      記録 →
+                    </Link>
+                    <ExcludeSuggestionButton targetId={s.id} username={s.username} />
+                  </div>
                 </li>
               );
             })}
@@ -209,26 +225,30 @@ export default async function Dashboard() {
         )}
       </div>
 
-      {/* 今日の行動量 */}
+      {/* 戦略KPI */}
       <div className="card mb-6">
-        <h2 className="font-bold text-white mb-3">今日の行動量</h2>
-        <div className="grid grid-cols-5 gap-3">
-          {Object.entries(DAILY_LIMITS).map(([key, limit]) => {
-            const current = (today as Record<string, number>)[key] ?? 0;
-            const ratio = current / limit;
-            const barColor = ratio >= 1 ? "bg-red-500" : ratio >= 0.8 ? "bg-yellow-400" : "bg-x-blue";
-            return (
-              <div key={key} className="text-center">
-                <p className="text-xs text-x-gray mb-1">{activityLabels[key]}</p>
-                <p className={`text-lg font-bold ${ratio >= 0.8 ? "text-yellow-400" : "text-white"}`}>
-                  {current}<span className="text-x-gray text-xs">/{limit}</span>
-                </p>
-                <div className="w-full bg-x-border rounded-full h-1.5 mt-1">
-                  <div className={`h-1.5 rounded-full ${barColor}`} style={{ width: `${Math.min(ratio * 100, 100)}%` }} />
-                </div>
-              </div>
-            );
-          })}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-bold text-white">戦略KPI</h2>
+          <span className="text-x-gray text-xs">行動量より、発見・追加・反応を重視</span>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-gray-900 rounded-lg p-4">
+            <p className="text-2xl font-bold text-x-blue">{stats.quoteCandidateCount}</p>
+            <p className="text-x-gray text-sm mt-1">引用チャンス保存数</p>
+            <p className="text-x-gray text-xs mt-2">検索で蓄積された候補の累計</p>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4">
+            <p className="text-2xl font-bold text-white">{stats.recentTargetAddCount}</p>
+            <p className="text-x-gray text-sm mt-1">ターゲット追加数</p>
+            <p className="text-x-gray text-xs mt-2">直近7日で追加したアカウント</p>
+          </div>
+          <div className="bg-gray-900 rounded-lg p-4">
+            <p className="text-2xl font-bold text-green-400">{stats.reactionRate}%</p>
+            <p className="text-x-gray text-sm mt-1">反応あり率</p>
+            <p className="text-x-gray text-xs mt-2">
+              直近90日 / {stats.reactionSampleCount}件中の有効反応
+            </p>
+          </div>
         </div>
       </div>
 
@@ -277,7 +297,18 @@ export default async function Dashboard() {
                 <li key={ix.id} className="border-b border-x-border pb-2 last:border-0">
                   <div className="flex items-center gap-2">
                     <span>{typeEmoji[ix.type]}</span>
-                    <span className="text-x-blue text-sm">@{ix.target.username}</span>
+                    <Link
+                      href={`https://x.com/${ix.target.username}`}
+                      target="_blank"
+                      className="text-x-blue text-sm hover:underline"
+                    >
+                      @{ix.target.username}
+                    </Link>
+                    <UserUrlCopyButton
+                      username={ix.target.username}
+                      label="URL"
+                      className="text-x-gray hover:text-x-blue text-xs transition-colors"
+                    />
                     <span className="text-x-gray text-xs ml-auto">{typeLabels[ix.type]}</span>
                   </div>
                   {ix.content && <p className="text-x-gray text-xs mt-1 truncate">{ix.content}</p>}

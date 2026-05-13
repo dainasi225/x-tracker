@@ -15,6 +15,7 @@ export default function AddTargetForm() {
     tags: "",
     notes: "",
     isFollowing: false,
+    isFollowedByMe: false,
     nextApproachAt: "",
   });
   const router = useRouter();
@@ -41,6 +42,7 @@ export default function AddTargetForm() {
         tags: "",
         notes: "",
         isFollowing: false,
+        isFollowedByMe: false,
         nextApproachAt: "",
       });
       setOpen(false);
@@ -116,7 +118,7 @@ export default function AddTargetForm() {
             value={form.phase}
             onChange={(e) => setForm({ ...form, phase: e.target.value })}
           >
-            <option value="PROSPECT">未接触</option>
+            <option value="PROSPECT">アプローチ候補</option>
             <option value="CONTACTED">接触済み</option>
             <option value="ENGAGED">反応あり</option>
             <option value="PARTNER">関係構築済み</option>
@@ -143,15 +145,27 @@ export default function AddTargetForm() {
         />
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="isFollowing"
-          checked={form.isFollowing}
-          onChange={(e) => setForm({ ...form, isFollowing: e.target.checked })}
-          className="w-4 h-4"
-        />
-        <label htmlFor="isFollowing" className="text-x-gray text-sm">フォロー中</label>
+      <div className="flex items-center gap-4">
+        <label htmlFor="isFollowedByMe" className="flex items-center gap-2 text-x-gray text-sm">
+          <input
+            type="checkbox"
+            id="isFollowedByMe"
+            checked={form.isFollowedByMe}
+            onChange={(e) => setForm({ ...form, isFollowedByMe: e.target.checked })}
+            className="w-4 h-4"
+          />
+          こちらがフォロー中
+        </label>
+        <label htmlFor="isFollowing" className="flex items-center gap-2 text-x-gray text-sm">
+          <input
+            type="checkbox"
+            id="isFollowing"
+            checked={form.isFollowing}
+            onChange={(e) => setForm({ ...form, isFollowing: e.target.checked })}
+            className="w-4 h-4"
+          />
+          相手がフォロー中
+        </label>
       </div>
 
       <div>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 type Target = { id: string; username: string; displayName: string | null };
 
 const interactionTypes = [
+  { value: "POST", label: "📝 投稿" },
   { value: "REPLY", label: "💬 リプライ" },
   { value: "LIKE", label: "❤️ いいね" },
   { value: "REPOST", label: "🔁 リポスト" },

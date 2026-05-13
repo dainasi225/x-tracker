@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import UserUrlCopyButton from "@/components/UserUrlCopyButton";
 type Target = {
   id: string;
   username: string;
@@ -12,6 +13,7 @@ type Target = {
   phase: string;
   tags: string;
   isFollowing: boolean;
+  isFollowedByMe: boolean;
   isBlacklisted?: boolean;
   blacklistReason?: string | null;
   notes: string | null;
@@ -34,7 +36,7 @@ const priorityLabel: Record<string, string> = {
 };
 
 const phaseLabel: Record<string, string> = {
-  PROSPECT: "未接触",
+  PROSPECT: "アプローチ候補",
   CONTACTED: "接触済み",
   ENGAGED: "反応あり",
   PARTNER: "関係構築済み",
@@ -60,6 +62,7 @@ const tagLabelJa: Record<string, string> = {
   FF_STYLE_MATCH: "運用近似",
   CLUSTER_MISMATCH_CHECK: "クラスタ違い要チェック",
   ALGO_NOISE_CHECK: "アルゴ汚染リスク要チェック",
+  QUOTE_OPPORTUNITY: "引用チャンス",
 };
 
 function toTagLabel(tag: string): string {
@@ -180,9 +183,18 @@ export default function TargetList({ targets }: { targets: Target[] }) {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${phaseStyle[target.phase]}`}>
                   {phaseLabel[target.phase]}
                 </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    target.isFollowedByMe
+                      ? "bg-amber-900 text-amber-300"
+                      : "bg-gray-800 text-gray-500"
+                  }`}
+                >
+                  {target.isFollowedByMe ? "こちらがフォロー中" : "こちら未フォロー"}
+                </span>
                 {target.isFollowing && (
                   <span className="bg-green-900 text-green-300 text-xs px-2 py-0.5 rounded-full">
-                    フォロー中
+                    相手がフォロー中
                   </span>
                 )}
               </div>
@@ -236,6 +248,10 @@ export default function TargetList({ targets }: { targets: Target[] }) {
               >
                 {busyKey === `history:${target.username}` ? "取込中..." : "履歴取込"}
               </button>
+              <UserUrlCopyButton
+                username={target.username}
+                className="text-x-gray hover:text-x-blue text-sm transition-colors"
+              />
               <Link
                 href={`/interactions?targetId=${target.id}`}
                 className="text-x-gray hover:text-x-blue text-sm transition-colors"

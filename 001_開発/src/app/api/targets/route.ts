@@ -11,7 +11,17 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { username, displayName, bio, priority, phase, tags, notes, isFollowing } = body;
+  const {
+    username,
+    displayName,
+    bio,
+    priority,
+    phase,
+    tags,
+    notes,
+    isFollowing,
+    isFollowedByMe,
+  } = body;
 
   if (!username) {
     return NextResponse.json({ error: "username is required" }, { status: 400 });
@@ -28,6 +38,7 @@ export async function POST(request: Request) {
         tags: tags || "",
         notes: notes || null,
         isFollowing: Boolean(isFollowing),
+        isFollowedByMe: Boolean(isFollowedByMe),
       },
     });
     return NextResponse.json(target, { status: 201 });

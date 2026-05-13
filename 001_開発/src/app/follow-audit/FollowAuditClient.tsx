@@ -23,7 +23,7 @@ type AuditResponse = {
 };
 
 const phaseLabel: Record<string, string> = {
-  PROSPECT: "未接触",
+  PROSPECT: "アプローチ候補",
   CONTACTED: "接触済み",
   ENGAGED: "反応あり",
   PARTNER: "関係構築済み",
@@ -63,6 +63,18 @@ export default function FollowAuditClient() {
         <p className="text-x-gray text-sm mb-4">
           「自分はフォローしているが、相手は自分をフォローしていない」アカウントを一覧化します。
         </p>
+        <p className="text-x-gray text-sm mb-4">
+          この機能はフォロー稼ぎ目的ではなく、あなた自身のフォロー運用を整理し、アルゴリズムへの負荷やノイズを見直すためのチェック用途です。
+        </p>
+        <p className="text-x-gray text-xs mb-4">
+          ※ X規約順守のため、本機能は手動運用の整理支援のみを目的とし、自動フォロー・自動解除などの自動操作は行いません。
+        </p>
+        <p className="text-x-gray text-xs mb-4">
+          <Link href="/follow-maintenance" className="text-x-blue hover:underline">
+            フォローメンテナンス
+          </Link>
+          …フォロー中のターゲットを「接触が古い順」で並べる画面です（片思い一覧とは別用途）。
+        </p>
         <button
           type="button"
           className="btn-primary"
@@ -100,7 +112,7 @@ export default function FollowAuditClient() {
 
           <div className="card">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-white">片思いフォロー一覧</h3>
+              <h3 className="font-bold text-white">フォロー運用の見直し候補</h3>
               <span className="text-x-gray text-xs">@{data.username}</span>
             </div>
 

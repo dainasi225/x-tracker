@@ -17,6 +17,7 @@ model Target {
   followerCount  Int?
   followingCount Int?
   isFollowing    Boolean   @default(false)
+  isFollowedByMe Boolean   @default(false)
   isBlacklisted  Boolean   @default(false)
   blacklistReason String?
   priority       String    @default("MEDIUM")
@@ -37,7 +38,7 @@ model Target {
   strategies     Strategy[]
 }
 
-// type: REPLY | LIKE | REPOST | QUOTE | DM | FOLLOW | MENTION | OTHER
+// type: REPLY | LIKE | REPOST | QUOTE | POST | DM | FOLLOW | MENTION | OTHER
 // result: NO_RESPONSE | LIKED | REPLIED | FOLLOWED | UNFOLLOWED
 // sentiment: POSITIVE | NEUTRAL | NEGATIVE
 model Interaction {
@@ -61,6 +62,7 @@ model DailyActivity {
   id          String   @id @default(cuid())
   date        String   @unique
   replyCount  Int      @default(0)
+  postCount   Int      @default(0)
   dmCount     Int      @default(0)
   followCount Int      @default(0)
   likeCount   Int      @default(0)
@@ -91,4 +93,41 @@ model UserPersona {
   ffRatio           Float    @default(1)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model QuoteCandidate {
+  id                   String    @id @default(cuid())
+  tweetId              String    @unique
+  tweetUrl             String?
+  conversationId       String?
+  text                 String
+  authorUsername       String?
+  authorName           String?
+  authorBio            String?
+  authorFollowerCount  Int?
+  authorFollowingCount Int?
+  likeCount            Int       @default(0)
+  replyCount           Int       @default(0)
+  repostCount          Int       @default(0)
+  quoteCount           Int       @default(0)
+  totalScore           Int       @default(0)
+  recommendedAction    String
+  quoteScore           Int       @default(0)
+  replyScore           Int       @default(0)
+  repostScore          Int       @default(0)
+  targetAddScore       Int       @default(0)
+  topicScore           Int       @default(0)
+  conversationScore    Int       @default(0)
+  influenceScore       Int       @default(0)
+  freshnessScore       Int       @default(0)
+  noiseScore           Int       @default(0)
+  reasons              String    @default("")
+  searchQuery          String
+  searchKeywords       String    @default("")
+  postedAt             DateTime?
+  discoveredAt         DateTime  @default(now())
+  lastSeenAt           DateTime  @default(now())
+  searchCount          Int       @default(1)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }

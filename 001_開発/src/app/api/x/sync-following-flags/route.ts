@@ -13,9 +13,8 @@ function normalizeUsername(value: string): string {
   return value.replace("@", "").trim().toLowerCase();
 }
 
-async function fetchUsernameSet(params: {
+async function fetchFollowingUsernames(params: {
   userId: string;
-  relation: "followers" | "following";
   bearerToken: string;
   maxPages: number;
 }) {
@@ -23,7 +22,7 @@ async function fetchUsernameSet(params: {
   let paginationToken: string | null = null;
 
   for (let i = 0; i < params.maxPages; i += 1) {
-    const url = `${X_API_BASE}/users/${params.userId}/${params.relation}?max_results=${MAX_RESULTS_PER_PAGE}&user.fields=username${
+    const url = `${X_API_BASE}/users/${params.userId}/following?max_results=${MAX_RESULTS_PER_PAGE}&user.fields=username${
       paginationToken ? `&pagination_token=${paginationToken}` : ""
     }`;
     const res = await fetch(url, {
@@ -33,11 +32,7 @@ async function fetchUsernameSet(params: {
 
     if (!res.ok) {
       const detail = await res.json().catch(() => ({}));
-      return {
-        ok: false as const,
-        status: res.status,
-        detail,
-      };
+      return { ok: false as const, status: res.status, detail };
     }
 
     const json: XUsersPage = await res.json().catch(() => ({}));
@@ -50,10 +45,7 @@ async function fetchUsernameSet(params: {
     if (!paginationToken) break;
   }
 
-  return {
-    ok: true as const,
-    usernames,
-  };
+  return { ok: true as const, usernames };
 }
 
 export async function POST(request: Request) {
@@ -105,9 +97,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const followingResult = await fetchUsernameSet({
+  const followingResult = await fetchFollowingUsernames({
     userId: myUserId,
-    relation: "following",
     bearerToken,
     maxPages,
   });
@@ -121,25 +112,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const followerResult = await fetchUsernameSet({
-    userId: myUserId,
-    relation: "followers",
-    bearerToken,
-    maxPages,
-  });
-  if (!followerResult.ok) {
-    return NextResponse.json(
-      {
-        error: "フォロワー一覧の取得に失敗しました",
-        detail: followerResult.detail,
-      },
-      { status: followerResult.status }
-    );
-  }
-
   const followedByMeUsernames = Array.from(followingResult.usernames);
+  let newlyMarked = 0;
   if (followedByMeUsernames.length > 0) {
-    await prisma.target.updateMany({
+    const update = await prisma.target.updateMany({
       where: {
         username: { in: followedByMeUsernames },
         isBlacklisted: false,
@@ -147,48 +123,22 @@ export async function POST(request: Request) {
       },
       data: { isFollowedByMe: true },
     });
+    newlyMarked = update.count;
   }
 
-  const followingOnly = Array.from(followingResult.usernames).filter(
-    (username) => !followerResult.usernames.has(username)
-  );
-
-  const trackedTargets =
-    followingOnly.length > 0
-      ? await prisma.target.findMany({
-          where: { username: { in: followingOnly } },
-          select: {
-            id: true,
-            username: true,
-            displayName: true,
-            phase: true,
-            isBlacklisted: true,
-          },
-        })
-      : [];
-  const trackedByUsername = new Map(
-    trackedTargets.map((target) => [normalizeUsername(target.username), target])
-  );
-
-  const unmatched = followingOnly.sort().map((username) => {
-    const target = trackedByUsername.get(username);
-    return {
-      username,
-      tracked: Boolean(target),
-      targetId: target?.id ?? null,
-      displayName: target?.displayName ?? null,
-      phase: target?.phase ?? null,
-      isBlacklisted: target?.isBlacklisted ?? false,
-    };
+  const targetsInFollowing = await prisma.target.count({
+    where: {
+      username: { in: followedByMeUsernames },
+      isBlacklisted: false,
+      isFollowedByMe: true,
+    },
   });
 
   return NextResponse.json({
     username: myUsername,
     maxPages,
     followingCount: followingResult.usernames.size,
-    followerCount: followerResult.usernames.size,
-    unmatchedCount: unmatched.length,
-    trackedUnmatchedCount: unmatched.filter((item) => item.tracked).length,
-    unmatched,
+    targetsMarkedFollowedByMe: targetsInFollowing,
+    newlyMarked,
   });
 }

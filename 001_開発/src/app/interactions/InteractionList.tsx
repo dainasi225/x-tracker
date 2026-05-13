@@ -16,6 +16,7 @@ type Interaction = {
 };
 
 const typeLabels: Record<string, string> = {
+  POST: "投稿",
   REPLY: "リプライ",
   LIKE: "いいね",
   REPOST: "リポスト",
@@ -27,6 +28,7 @@ const typeLabels: Record<string, string> = {
 };
 
 const typeEmoji: Record<string, string> = {
+  POST: "📝",
   REPLY: "💬",
   LIKE: "❤️",
   REPOST: "🔁",

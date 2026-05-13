@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
 const trackedFieldByType: Record<string, keyof Omit<DailyCounts, "date"> | null> = {
   REPLY: "replyCount",
+  POST: "postCount",
   DM: "dmCount",
   FOLLOW: "followCount",
   LIKE: "likeCount",
@@ -26,6 +27,7 @@ const trackedFieldByType: Record<string, keyof Omit<DailyCounts, "date"> | null>
 type DailyCounts = {
   date: string;
   replyCount: number;
+  postCount: number;
   dmCount: number;
   followCount: number;
   likeCount: number;
@@ -36,6 +38,7 @@ function buildEmptyCounts(date: string): DailyCounts {
   return {
     date,
     replyCount: 0,
+    postCount: 0,
     dmCount: 0,
     followCount: 0,
     likeCount: 0,

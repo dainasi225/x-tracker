@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import RefreshActivityButton from "./RefreshActivityButton";
 
 const DAILY_LIMITS = {
+  postCount: 50,
   replyCount: 100,
   dmCount: 50,
   followCount: 400,
@@ -10,6 +11,7 @@ const DAILY_LIMITS = {
 };
 
 const fieldLabels: Record<string, string> = {
+  postCount: "📝 投稿",
   replyCount: "💬 リプライ",
   dmCount: "✉️ DM",
   followCount: "➕ フォロー",
@@ -30,6 +32,7 @@ export default async function ActivityPage() {
   const todayRaw = activities.find((a) => a.date === today);
   const todayData: Record<string, number> = {
     replyCount: todayRaw?.replyCount ?? 0,
+    postCount: todayRaw?.postCount ?? 0,
     dmCount: todayRaw?.dmCount ?? 0,
     followCount: todayRaw?.followCount ?? 0,
     likeCount: todayRaw?.likeCount ?? 0,
@@ -90,6 +93,7 @@ export default async function ActivityPage() {
         <h2 className="font-bold text-yellow-400 mb-3">X 規約ガイドライン（参考上限）</h2>
         <ul className="space-y-1 text-sm text-x-gray">
           <li>• <span className="text-white">リプライ</span>：1日100件程度（スパム判定回避）</li>
+          <li>• <span className="text-white">投稿</span>：1日50件程度（短時間の連投を避ける）</li>
           <li>• <span className="text-white">DM</span>：1日50件程度（非フォロワーへの送信は特に注意）</li>
           <li>• <span className="text-white">フォロー</span>：1日400件まで（5000人超は比率制限あり）</li>
           <li>• <span className="text-white">いいね</span>：1日1000件程度（連続操作は避ける）</li>

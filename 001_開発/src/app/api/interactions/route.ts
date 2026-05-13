@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   // DailyActivity を upsert してカウントを増やす
   const countField = {
     REPLY: "replyCount",
+    POST: "postCount",
     DM: "dmCount",
     FOLLOW: "followCount",
     LIKE: "likeCount",

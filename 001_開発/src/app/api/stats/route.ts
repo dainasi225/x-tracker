@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
 const DAILY_LIMITS = {
+  postCount: 50,
   replyCount: 100,
   dmCount: 50,
   followCount: 400,
@@ -32,6 +33,7 @@ export async function GET() {
 
   const activity = todayActivity ?? {
     replyCount: 0,
+    postCount: 0,
     dmCount: 0,
     followCount: 0,
     likeCount: 0,
